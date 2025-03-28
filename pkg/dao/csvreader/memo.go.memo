@@ -1,0 +1,166 @@
+package csvreader
+
+import (
+	"bytes"
+	"encoding/csv"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"reflect"
+	"strconv"
+)
+
+// SourceType は `string`（ファイルパス）または `[]byte`（データ）のみ許可
+type SourceType interface {
+	~string | ~[]byte
+}
+
+// ReadCSV はジェネリクスを使い、ファイルパス (`string`) または `[]byte` のみを受け取り、任意の構造体スライスを返す
+func ReadCSV[T any, S SourceType](source S) ([]T, error) {
+	var reader *csv.Reader
+
+	switch v := any(source).(type) {
+	case string: // ファイルパスの場合
+		file, err := os.Open(v)
+		if err != nil {
+			return nil, fmt.Errorf("ファイルを開けません: %w", err)
+		}
+		defer file.Close()
+		reader = csv.NewReader(file)
+
+	case []byte: // `[]byte` データの場合
+		reader = csv.NewReader(bytes.NewReader(v))
+
+	default:
+		return nil, errors.New("無効な入力型")
+	}
+
+	// ヘッダーをスキップ
+	_, err := reader.Read()
+	if err != nil {
+		return nil, fmt.Errorf("ヘッダー読み込みエラー: %w", err)
+	}
+
+	// データを構造体スライスに変換
+	var results []T
+	structType := reflect.TypeOf((*T)(nil)).Elem()
+
+	for {
+		row, err := reader.Read()
+		if err == io.EOF {
+			break // 終端なら終了
+		}
+		if err != nil {
+			return nil, fmt.Errorf("CSV 読み込みエラー: %w", err)
+		}
+
+		// 構造体の新しいインスタンスを作成
+		structValue := reflect.New(structType).Elem()
+
+		// フィールド数が一致するか確認
+		if structType.NumField() != len(row) {
+			return nil, errors.New("CSV の列数と構造体のフィールド数が一致しません")
+		}
+
+		// フィールドに値をセット
+		for i := 0; i < structType.NumField(); i++ {
+			field := structValue.Field(i)
+			if !field.CanSet() {
+				continue
+			}
+
+			switch field.Kind() {
+			case reflect.String:
+				field.SetString(row[i])
+			case reflect.Int, reflect.Int64:
+				intValue, _ := strconv.ParseInt(row[i], 10, 64)
+				field.SetInt(intValue)
+			case reflect.Float64:
+				floatValue, _ := strconv.ParseFloat(row[i], 64)
+				field.SetFloat(floatValue)
+			}
+		}
+
+		// スライスに追加
+		results = append(results, structValue.Interface().(T))
+	}
+
+	return results, nil
+}
+package main
+
+import (
+	"encoding/csv"
+	"fmt"
+	"io"
+	"os"
+	"reflect"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// **ジェネリクス対応の CSV ヘッダーとインデックスの対応表作成**
+func GetHeaderIndexMap(header []string, mapping map[string]string) map[string]int {
+	headerIndexMap := make(map[string]int)
+	for csvColumn := range mapping {
+		for i, col := range header {
+			if col == csvColumn {
+				headerIndexMap[csvColumn] = i
+				break
+			}
+		}
+	}
+	return headerIndexMap
+}
+
+// **カンマを削除して float64 に変換**
+func convertStringToFloat64(s string) (float64, error) {
+	s = strings.ReplaceAll(s, ",", "")
+	return strconv.ParseFloat(s, 64)
+}
+
+// **ジェネリクス対応の CSV 1行データを構造体に変換**
+func ParseCSVRow[T any](headerIndexMap map[string]int, row []string, fieldMapping map[string]string) (T, error) {
+	var data T
+	structValue := reflect.ValueOf(&data).Elem()
+	structType := structValue.Type()
+
+	// **ヘッダーの対応表を使って値をセット**
+	for csvColumn, structField := range fieldMapping {
+		// **カラムが見つからない場合はスキップ**
+		index, exists := headerIndexMap[csvColumn]
+		if !exists {
+			continue
+		}
+
+		field := structValue.FieldByName(structField)
+		if !field.IsValid() || !field.CanSet() {
+			continue
+		}
+
+		// **データを適切な型に変換**
+		switch field.Kind() {
+		case reflect.String:
+			field.SetString(row[index])
+		case reflect.Int, reflect.Int64:
+			val, _ := strconv.ParseInt(row[index], 10, 64)
+			field.SetInt(val)
+		case reflect.Float64:
+			val, _ := convertStringToFloat64(row[index])
+			field.SetFloat(val)
+		case reflect.Struct:
+			// **`Date` (time.Time) の場合**
+			if structType.FieldByName(structField).Type == reflect.TypeOf(time.Time{}) {
+				date, err := time.Parse("2006/01/02", row[index])
+				if err != nil {
+					return data, fmt.Errorf("日付のパースに失敗: %w", err)
+				}
+				field.Set(reflect.ValueOf(date))
+			}
+		}
+	}
+
+	return data, nil
+}
