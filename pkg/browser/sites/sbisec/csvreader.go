@@ -67,7 +67,7 @@ func ReadRSI(screenedData []byte) (stocks []ScreenedStockRSI, err error) {
 
     stock := ScreenedStockRSI{
       ScreenedStockBase: ScreenedStockBase{
-        YYYYMMDD: 20250328,
+        YYYYMMDD: 20250331,
         Code: row[0],
         Name: row[1],
       },
@@ -104,7 +104,7 @@ func ReadMACDSignal(screenedData []byte, macdSignal MACDSignal) (stocks []Screen
 
     stock := ScreenedStockMACDSignal{
       ScreenedStockBase: ScreenedStockBase{
-        YYYYMMDD: 20250328,
+        YYYYMMDD: 20250331,
         Code: row[0],
         Name: row[1],
       },
