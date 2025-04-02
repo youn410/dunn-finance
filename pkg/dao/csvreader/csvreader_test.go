@@ -12,8 +12,6 @@ import (
   "reflect"
 )
 
-var _ = fmt.Println
-
 type ParsedDataStruct struct {
   IntField int
   Float64Field float64
