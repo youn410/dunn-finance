@@ -14,6 +14,7 @@ type DBConnector interface {
 
   Exec(query string, args ...any) (sql.Result, error)
   QueryRow(query string, args ...any) *sql.Row
+  Query(query string, args ...any) (*sql.Rows, error)
 }
 
 type SQLConnector struct {
@@ -38,6 +39,10 @@ func (c *SQLConnector) Exec(query string, args ...any) (sql.Result, error) {
 
 func (c *SQLConnector) QueryRow(query string, args ...any) *sql.Row {
   return c.db.QueryRow(query, args...)
+}
+
+func (c *SQLConnector) Query(query string, args ...any) (*sql.Rows, error) {
+  return c.db.Query(query, args...)
 }
 
 type DBManager struct {

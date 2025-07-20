@@ -1,2 +1,8 @@
 .direnv
 .envrc
+.password
+.username
+
+# database file
+*.sqlite3
+*.db
