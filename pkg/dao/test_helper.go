@@ -19,8 +19,8 @@ var TestManager = &database.DBManager{
 var createStocksTableSql = "CREATE TABLE stocks (code TEXT PRIMARY KEY, name TEXT)"
 var createAdjustedDailyOhlcvsTableSql = `
   CREATE TABLE adjusted_daily_ohlcvs (
-    yyyymmdd     INTEGER,
-    code         TEXT,
+    yyyymmdd     INTEGER NOT NULL,
+    code         TEXT NOT NULL,
     open_price   REAL,
     high_price   REAL,
     low_price    REAL,
@@ -64,9 +64,11 @@ func LoadOhlcvCSV(path string) ([]*model.AdjustedDailyOHLCV, error) {
     if err == io.EOF { break }
     if err != nil { return nil, err }
 
-    parseFloat := func(s string) float64 {
-      v, _ := strconv.ParseFloat(s, 64)
-      return v
+    parseFloat := func(s string) *float64 {
+      v, err := strconv.ParseFloat(s, 64)
+      if err != nil { return nil }
+
+      return &v
     }
 
     records = append(records, &model.AdjustedDailyOHLCV{
