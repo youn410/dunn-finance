@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS adjusted_daily_ohlcvs (
-  yyyymmdd     TEXT,
-  code         TEXT,
+  yyyymmdd     TEXT NOT NULL,
+  code         TEXT NOT NULL,
   open_price   REAL,
   high_price   REAL,
   low_price    REAL,

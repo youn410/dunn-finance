@@ -30,20 +30,21 @@ CREATE TABLE adjusted_daily_ohlcvs (
 );`
 
 func NewAdjustedDailyOHLCV(overrides ...func(*model.AdjustedDailyOHLCV)) *model.AdjustedDailyOHLCV {
+  floatToPointer := func(v float64) *float64 { return &v }
   o := &model.AdjustedDailyOHLCV{
     Yyyymmdd:   "20250706",
     Code:       "1234",
-    OpenPrice:  1000.0,
-    HighPrice:  1050.0,
-    LowPrice:   990.0,
-    ClosePrice: 1020.0,
-    DMAPrice5:  1010.0,
-    DMAPrice25: 1005.0,
-    DMAPrice75: 995.0,
-    VMAP:       1015.0,
-    Volume:     150000.0,
-    VMA5:       140000.0,
-    VMA25:      130000.0,
+    OpenPrice:  floatToPointer(1000.0),
+    HighPrice:  floatToPointer(1050.0),
+    LowPrice:   floatToPointer(990.0),
+    ClosePrice: floatToPointer(1020.0),
+    DMAPrice5:  floatToPointer(1010.0),
+    DMAPrice25: floatToPointer(1005.0),
+    DMAPrice75: floatToPointer(995.0),
+    VMAP:       floatToPointer(1015.0),
+    Volume:     floatToPointer(150000.0),
+    VMA5:       floatToPointer(140000.0),
+    VMA25:      floatToPointer(130000.0),
   }
 
   for _, fn := range overrides {
@@ -88,8 +89,23 @@ func TestAdjustedDaliyOhlcvDao_Find_Success(t *testing.T) {
   ohlcvType := vExpected.Type()
   for i := 0; i < vExpected.NumField(); i++ {
     fieldName := ohlcvType.Field(i).Name
-    valExpected := vExpected.Field(i).Interface()
-    valActual := vActual.Field(i).Interface()
+    fieldExpected := vExpected.Field(i)
+    fieldActual := vActual.Field(i)
+
+    var valExpected, valActual any
+    if fieldExpected.Kind() == reflect.Ptr && fieldExpected.Type().Elem().Kind() == reflect.Float64 {
+      if fieldExpected.IsNil() && fieldActual.IsNil() { continue }
+      if fieldExpected.IsNil() || fieldActual.IsNil() {
+        t.Errorf("Field: %s, expected: %v, but got %v", fieldName, fieldExpected, fieldActual)
+        continue
+      }
+      valExpected = fieldExpected.Elem().Float()
+      valActual = fieldActual.Elem().Float()
+    } else {
+      valExpected = fieldExpected.Interface()
+      valActual = fieldActual.Interface()
+    }
+
     if !reflect.DeepEqual(valExpected, valActual) {
       t.Errorf("Field: %s, expected: %v, but got %v", fieldName, valExpected, valActual)
     }
